@@ -2,6 +2,7 @@ import os
 import sys
 import base64
 import glob
+import gc  # 💡 メモリを強制解放するためのライブラリ
 
 try:
     import PIL.Image
@@ -159,6 +160,13 @@ def generate_video_process():
     output_filename = "output.mp4"
     video.write_videofile(output_filename, fps=fps, codec="libx264", audio_codec="aac")
     
+    # 💡 使用した古い動画パーツを完全に閉じてメモリを空っぽにします
+    video.close()
+    if os.path.exists(bgm_filename):
+        audio_clip.close()
+    for c in clips:
+        c.close()
+        
     for i in range(len(images)):
         for f in range(total_frames):
             temp_file = f"temp_frame_{i}_{f}.jpg"
@@ -167,24 +175,26 @@ def generate_video_process():
                 
     return output_filename
 
-# 🌐 【超軽量・パソコン直接保存版】
-# メモリの隙間を完璧に整えました。これで絶対にFailedを回避できます！
+# 🚀 【超・省メモリ パソコン直接保存版】
 @app.route('/make_video', methods=['POST'])
 def api_make_video():
     print("📥 Bubbleから動画の生成指示を受信しました！")
     try:
         output_file = generate_video_process()
         
-        # 写真が空っぽの場合は、安全装置としてテスト用の綺麗な2秒動画を作ります
         if not output_file:
             print("💡 写真がないため、テスト用動画を自動作成します。")
             from moviepy.editor import ColorClip
             output_file = "output.mp4"
             clip = ColorClip(size=(1080, 1920), color=(30, 30, 40), duration=2)
             clip.write_videofile(output_file, fps=24, codec="libx264")
+            clip.close()
+            
+        # 💡 送信直前に、溜まった不要なメモリを強制的に一斉大掃除（大解放）します！
+        gc.collect()
             
         if output_file and os.path.exists(output_file):
-            print("📤 動画ファイルを【細切れストリーム】で安全に送信します！")
+            print("📤 動画ファイルを【超軽量細切れストリーム】で安全に送信します！")
             
             def chunk_generator(fpath):
                 with open(fpath, "rb") as f:
