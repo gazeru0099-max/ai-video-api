@@ -187,3 +187,10 @@ def api_make_video():
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
+
+# 📥 サーバーに保存された動画をパソコンに持ってくるためのダウンロード窓口
+@app.route('/download_video', methods=['GET'])
+def download_video():
+    if os.path.exists("output.mp4"):
+        return send_file("output.mp4", mimetype='video/mp4', as_attachment=True)
+    return jsonify({"error": "動画ファイルが見つかりません"}), 404
