@@ -3,7 +3,6 @@ import sys
 import base64
 import glob
 
-# 【相性エラー対策】
 try:
     import PIL.Image
     if not hasattr(PIL.Image, 'ANTIALIAS'):
@@ -11,18 +10,15 @@ try:
 except ImportError:
     pass
 
-# 🔑 あなたのOpenAI APIキー
 OPENAI_API_KEY = (
     "sk-proj-97wAwnk4jFORclqpunbF21LIEEP69kWcwI2uuuKBuXKH3v1kmMS_"
     "pVxy6f7hzvGOeF8NgMwMsAT3BlbkFJSyYfrdErqAVsjSLFEw8Lb9_LHJn9PD"
     "wdFuVSmqLdcaintABw-bdc9iRmqoG69HncSsArIRJRYA"
 )
 
-# 🌐 【新機能】Webサーバーの道具（Flask）を読み込む
 try:
     from flask import Flask, request, jsonify, send_file
 except ImportError:
-    print("Webサーバーの道具（flask）を自動インストールしています...")
     import subprocess
     subprocess.check_call([sys.executable, "-m", "pip", "install", "flask"])
     from flask import Flask, request, jsonify, send_file
@@ -35,8 +31,6 @@ def encode_image(image_path):
 
 def get_ai_captions_auto(images):
     image_count = len(images)
-    print(f"🤖 ChatGPTに【合計 {image_count} 枚】の写真を送信して、自動テロップを依頼中...")
-    
     import requests
     image_contents = []
     for img in images:
@@ -47,7 +41,7 @@ def get_ai_captions_auto(images):
         })
 
     prompt_text = (
-        f"添付した {image_count} 枚の写真を順番に使って、SNS用のショート動画を作ります。\n"
+        f"添付した {image_count} 枚の写真を順番使って、SNS用のショート動画を作ります。\n"
         f"それぞれの写真にぴったり合う、おしゃれで短い日本語のテロップ（10文字以内）を【合計 {image_count} 個】考えてください。\n"
         f"出力は、余計な説明や数字（1. など）は一切含めず、改行で区切った {image_count} 行の文字だけを出力してください。"
     )
@@ -76,7 +70,6 @@ def get_ai_captions_auto(images):
     except:
         return [f"思い出の一枚 {i+1}" for i in range(image_count)]
 
-# 🎬 以前作った完璧な動画編集エンジンをそのまま関数化
 def generate_video_process():
     from moviepy.editor import ImageClip, concatenate_videoclips, AudioFileClip
     from PIL import ImageDraw, ImageFont
@@ -127,8 +120,8 @@ def generate_video_process():
             try:
                 if hasattr(draw, 'textbbox'):
                     bbox = draw.textbbox((0, 0), text, font=font)
-                    tw = bbox[2] - bbox[0]
-                    th = bbox[3] - bbox[1]
+                    tw = bbox - bbox
+                    th = bbox - bbox
                 else:
                     tw, th = draw.textsize(text, font=font)
             except: pass
@@ -172,23 +165,26 @@ def generate_video_process():
                 
     return output_filename
 
-# 🌐 【新機能】Bubbleからの「動画を作って！」という通信を受け取る窓口（APIポート）
+# 🌐 【エラー対策版】
 @app.route('/make_video', methods=['POST'])
 def api_make_video():
     print("📥 Bubbleから動画生成のリクエストを受信しました！")
-    
-    # 本来はここにBubbleから送られてきた写真を受け取る処理を書きますが、
-    # まずは通信テストのため、フォルダ内の写真を使って動画を即座に生成します。
-    output_file = generate_video_process()
-    
-    if output_file and os.path.exists(output_file):
-        print(f"📤 動画「{output_file}」が完成しました。Bubbleへ送信します。")
-        # 完成したmp4動画ファイルをBubbleの画面へ直接送り返す
-        return send_file(output_file, mimetype='video/mp4')
-    else:
-        return jsonify({"error": "動画の生成に失敗しました"}), 500
+    try:
+        output_file = generate_video_process()
+        if not output_file:
+            print("💡 写真がないため、テスト用動画を自動作成します。")
+            from moviepy.editor import ColorClip
+            output_file = "output.mp4"
+            clip = ColorClip(size=(1080, 1920), color=(30, 30, 40), duration=2)
+            clip.write_videofile(output_file, fps=24, codec="libx264")
+            
+        if output_file and os.path.exists(output_file):
+            print(f"📤 動画「{output_file}」が完成しました。Bubbleへ送信します。")
+            return send_file(output_file, mimetype='video/mp4')
+        else:
+            return jsonify({"error": "動画の生成に失敗しました"}), 500
+    except Exception as e:
+        return jsonify({"error": f"エラーが発生しました: {str(e)}"}), 500
 
 if __name__ == "__main__":
-    # パソコン上のポート「5000」番番窓口で、Bubbleからの接続を待ち受けます
-    print("🔒 あなたのPCがAI動画Webサーバーとして起動しました！ポート5000番で待機中...")
     app.run(host='0.0.0.0', port=5000)
