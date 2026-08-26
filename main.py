@@ -169,13 +169,15 @@ def generate_video_process():
 
 # 🚀 【パソコン直接保存版】
 # ボタンを押したその瞬間に、完成した動画ファイルそのものをパソコンへ直接一瞬でダウンロードさせます！
+# 🚀 【超軽量・パソコン直接保存版】
+# メモリを一切消費しないように、動画を細切れに分解してパソコンへ少しずつ送り届けます！
 @app.route('/make_video', methods=['POST'])
 def api_make_video():
     print("📥 Bubbleから動画の生成指示を受信しました！")
     try:
         output_file = generate_video_process()
         
-        # 写真が空っぽの場合は、安全装置としてテスト用の綺麗な2秒動画を即座に合成します
+        # 写真が空っぽの場合は、安全装置としてテスト用の2秒動画を作ります
         if not output_file:
             print("💡 写真がないため、テスト用動画を自動作成します。")
             from moviepy.editor import ColorClip
@@ -184,13 +186,21 @@ def api_make_video():
             clip.write_videofile(output_file, fps=24, codec="libx264")
             
         if output_file and os.path.exists(output_file):
-            print(f"📤 動画ファイル「{output_file}」をパソコンへ直接一気に送信（ダウンロード開始）します！")
-            # JSONテキストでのお返事をやめ、動画データそのものをストリームとして直接送り返します！
-            return send_file(output_file, mimetype='video/mp4', as_attachment=True, download_name="output.mp4")
+            print(f"📤 動画ファイルを【細切れストリーム】で安全に送信します！")
+            
+            # 💡 【ここがポイント！】動画を少しずつ細切れにして送信することで、無料サーバーのメモリを1ミリも圧迫せずに一瞬でダウンロードを開始させます！
+            def generate():
+                with open(output_file, "rb") as fpath:
+                    while True:
+                        chunk = fpath.read(4096)
+                        if not chunk:
+                            break
+                        yield chunk
+            
+            from flask import Response
+            return Response(generate(), mimetype="video/mp4", headers={"Content-Disposition": "attachment; filename=output.mp4"})
         else:
             return jsonify({"error": "動画の生成に失敗しました"}), 500
     except Exception as e:
         return jsonify({"error": f"エラーが発生しました: {str(e)}"}), 500
 
-if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000)
