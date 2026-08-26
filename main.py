@@ -23,7 +23,7 @@ except ImportError:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "flask"])
     from flask import Flask, request, jsonify, send_file
 
-# 🌐 サーバーの本体（これでエラーが完全に消えます！）
+# 🌐 サーバーの本体起動
 app = Flask(__name__)
 
 def encode_image(image_path):
@@ -167,14 +167,15 @@ def generate_video_process():
                 
     return output_filename
 
-# 🌐 Bubbleから本物の動画生成指示を受信する窓口（安全装置付き）
+# 🚀 【パソコン直接保存版】
+# ボタンを押したその瞬間に、完成した動画ファイルそのものをパソコンへ直接一瞬でダウンロードさせます！
 @app.route('/make_video', methods=['POST'])
 def api_make_video():
-    print("📥 Bubbleから本物の動画生成指示を受信しました！")
+    print("📥 Bubbleから動画の生成指示を受信しました！")
     try:
         output_file = generate_video_process()
         
-        # 💡 写真が1枚もない場合は、テスト用の黒い2秒動画を自動作成する安全装置
+        # 写真が空っぽの場合は、安全装置としてテスト用の綺麗な2秒動画を即座に合成します
         if not output_file:
             print("💡 写真がないため、テスト用動画を自動作成します。")
             from moviepy.editor import ColorClip
@@ -183,23 +184,13 @@ def api_make_video():
             clip.write_videofile(output_file, fps=24, codec="libx264")
             
         if output_file and os.path.exists(output_file):
-            print(f"📤 動画「{output_file}」の保存が完了しました！")
-            return jsonify({
-                "status": "success",
-                "message": "動画の作成とパソコンへの保存が完了しました！",
-                "video_url": "https://onrender.com"
-            }), 200
+            print(f"📤 動画ファイル「{output_file}」をパソコンへ直接一気に送信（ダウンロード開始）します！")
+            # JSONテキストでのお返事をやめ、動画データそのものをストリームとして直接送り返します！
+            return send_file(output_file, mimetype='video/mp4', as_attachment=True, download_name="output.mp4")
         else:
             return jsonify({"error": "動画の生成に失敗しました"}), 500
     except Exception as e:
         return jsonify({"error": f"エラーが発生しました: {str(e)}"}), 500
-
-# 📥 サーバーから動画を自分のパソコンにダウンロードするための窓口
-@app.route('/download_video', methods=['GET'])
-def download_video():
-    if os.path.exists("output.mp4"):
-        return send_file("output.mp4", mimetype='video/mp4', as_attachment=True)
-    return jsonify({"error": "動画ファイルが見つかりません"}), 404
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000)
